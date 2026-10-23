@@ -156,7 +156,14 @@ footer{padding:20px 18px}
 const SUPABASE_URL = "https://heuhurmkhprchbmkqbjq.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_c_TzeE0nVQ-CpQT4KXSPHw_rh8shJOv";
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Keep the authenticated session in this browser across page reloads and visits.
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+});
 const $ = id => document.getElementById(id);
 
 let pendingEmail = "";
@@ -213,21 +220,22 @@ async function loadProject(email) {
   $("projectName").textContent = data.project_name || "Website project";
   $("projectDescription").textContent = data.description || "Here’s the latest progress on your website.";
 
-  const pct = Math.max(0, Math.min(100, Number(data.progress_percent) || 0));
+  const pct = Math.max(0, Math.min(100, Number(data.progress_percent ?? data.progress) || 0));
   $("percent").textContent = pct + "%";
   $("fill").style.width = pct + "%";
   $("stage").textContent = data.stage || "In progress";
-  $("updated").textContent = data.updated_at
-    ? "Last updated " + new Date(data.updated_at).toLocaleDateString()
+  const updatedAt = data.updated_at || data.created_at;
+  $("updated").textContent = updatedAt
+    ? "Last updated " + new Date(updatedAt).toLocaleDateString()
     : "";
 
   $("designerName").textContent = data.designer_name || "Isaac";
 
-  const designerEmail = data.designer_email || "isaac@vonvisualdesigns.com";
+  const designerEmail = data.designer_email || data.designer_contact || "info@vonvisualdesigns.com";
   $("designerEmail").textContent = designerEmail;
   $("designerEmail").href = "mailto:" + designerEmail;
 
-  $("notes").textContent = data.progress_notes || "Your designer will add updates here.";
+  $("notes").textContent = data.progress_notes || data.notes || "Your designer will add updates here.";
 }
 
 async function sendCode(email) {
@@ -351,16 +359,19 @@ $("logout").addEventListener("click", async () => {
 
     const email = data.session?.user?.email;
     if (email) {
+      $("email").value = email;
       try {
         await loadProject(email);
       } catch (error) {
         showLogin();
         message(error.message || "Couldn't load your project. Please sign in again.", true);
       }
+    } else {
+      showLogin();
     }
   } catch (error) {
     showLogin();
-    message("Couldn't check your existing session. Please refresh the page and try again.", true);
+    message(error.message || "Couldn't check your existing session. Please refresh the page and try again.", true);
   }
 })();
 </script>
